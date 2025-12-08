@@ -1,0 +1,11 @@
+services:
+  poll-backend:
+    build: .
+    container_name: poll-backend-container
+    ports:
+      - "${BACKEND_PORT:-9000}:9000"  # lokální port 9000 defaultně
+    env_file:
+      - "${ENV_FILE:-.env.prod}"      # načte .env.prod
+    volumes:
+      - ./data:/app/stage/data        # lokální persistentní SQLite
+    restart: unless-stopped
