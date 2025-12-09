@@ -21,6 +21,10 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
    * will be called when the application receives a `GET` request with
    * a path of `/`.
    */
+def home() = Action {
+  Ok("Server běží! Endpoint /home funguje.")
+}
+
   def index() = Action { implicit request: Request[AnyContent] =>
     Ok(views.html.index())
   }
