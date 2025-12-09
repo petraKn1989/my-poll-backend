@@ -21,7 +21,12 @@ class HomeController @Inject()(val controllerComponents: ControllerComponents) e
    * will be called when the application receives a `GET` request with
    * a path of `/`.
    */
+
+     println("RAILWAY_HOST = " + sys.env.get("RAILWAY_HOST"))
+  println("PORT = " + sys.env.get("PORT"))
 def home() = Action {
+   // Tady se vypíšou env proměnné při startu
+
   Ok("Server běží! Endpoint /home funguje.")
 }
 
