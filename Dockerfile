@@ -1,6 +1,8 @@
 # --- BUILD STAGE --------------------------------------------------------
 FROM eclipse-temurin:11-jdk AS builder
 
+# force rebuild
+
 WORKDIR /app
 
 # Install curl + unzip
@@ -38,4 +40,4 @@ EXPOSE 9000
 # CMD spustí aplikaci s Play secret a configem
 CMD ["sh", "-c", "./stage/bin/poll-backend -Dhttp.port=${PORT} -Dplay.http.secret.key=$PLAY_SECRET"]
 
-# force rebuild
+
