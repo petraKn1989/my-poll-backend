@@ -37,3 +37,5 @@ EXPOSE 9000
 
 # CMD spustí aplikaci s Play secret a configem
 CMD ["sh", "-c", "./stage/bin/poll-backend -Dhttp.port=${PORT} -Dplay.http.secret.key=$PLAY_SECRET"]
+
+# force rebuild
