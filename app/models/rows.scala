@@ -1,13 +1,17 @@
 package models
 
-import slick.jdbc.SQLiteProfile.api._
+import slick.jdbc.PostgresProfile.api._
+import java.time.LocalDateTime
+import repository.Mappings.localDateTimeColumnType
+
+
 
 // ==================== Poll / Question / Option ====================
 
-case class PollRow(id: Long = 0, createdAt: String)
+case class PollRow(id: Long = 0, createdAt: LocalDateTime)
 class PollsTable(tag: Tag) extends Table[PollRow](tag, "polls") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-  def createdAt = column[String]("created_at")
+  def createdAt = column[LocalDateTime]("created_at")
   def * = (id, createdAt) <> (PollRow.tupled, PollRow.unapply)
 }
 
@@ -38,20 +42,16 @@ class UsersTable(tag: Tag) extends Table[UserRow](tag, "users") {
   def * = (id, name, email) <> (UserRow.tupled, UserRow.unapply)
 }
 
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-
 case class AnswerRow(
   id: Long = 0,
   pollId: Long,
   questionId: Long,
   optionId: Long,
   userId: Option[Long] = None,
-  createdAt: String = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+  
+  createdAt: LocalDateTime = LocalDateTime.now(),
   submissionId: String
 )
-
-
 
 class AnswersTable(tag: Tag) extends Table[AnswerRow](tag, "answers") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
@@ -59,11 +59,8 @@ class AnswersTable(tag: Tag) extends Table[AnswerRow](tag, "answers") {
   def questionId = column[Long]("question_id")
   def optionId = column[Long]("option_id")
   def userId = column[Option[Long]]("user_id")
-  def createdAt = column[String]("created_at") // zůstává NOT NULL
+  def createdAt = column[LocalDateTime]("created_at")
   def submissionId = column[String]("submission_id")
+
   def * = (id, pollId, questionId, optionId, userId, createdAt, submissionId) <> (AnswerRow.tupled, AnswerRow.unapply)
-
 }
-
-
-

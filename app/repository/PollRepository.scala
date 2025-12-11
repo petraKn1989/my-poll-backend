@@ -1,9 +1,11 @@
 package repository
 
 import javax.inject.{Inject, Singleton}
-import slick.jdbc.SQLiteProfile.api._
+import slick.jdbc.PostgresProfile.api._
 import models._
 import scala.concurrent.{ExecutionContext, Future}
+import repository.Mappings.localDateTimeColumnType
+import java.time.format.DateTimeFormatter
 
 @Singleton
 class PollRepository @Inject()(implicit ec: ExecutionContext) {
@@ -15,12 +17,13 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
   private val options = TableQuery[OptionsTable]
   private val answers = TableQuery[AnswersTable]
 
+  private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+
   /** Vložení nového pollu s otázkami a možnostmi */
   def insertPoll(poll: Poll): Future[Long] = {
     val action = for {
-      pollId <- (polls returning polls.map(_.id)) += PollRow(
-        createdAt = poll.createdAt
-      )
+      pollId <- (polls returning polls.map(_.id)) += PollRow(createdAt = poll.createdAt)
+
       _ <- DBIO.sequence(
         poll.questions.map { q =>
           for {
@@ -46,77 +49,61 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
   }
 
   /** Načtení pollu s otázkami, možnostmi a počtem hlasů */
-def getPollWithQuestionsAndOptions(pollId: Long): Future[Option[PollJson]] = {
+  def getPollWithQuestionsAndOptions(pollId: Long): Future[Option[PollJson]] = {
+    val query = for {
+      ((q, o), a) <- questions
+        .filter(_.pollId === pollId)
+        .join(options).on(_.id === _.questionId)
+        .joinLeft(answers).on { case ((_, o), a) => o.id === a.optionId }
+    } yield (q, o, a)
 
-  // 1️⃣ JOIN otázek, možností a odpovědí
-  val query = for {
-    ((q, o), a) <- questions
-      .filter(_.pollId === pollId)
-      .join(options).on(_.id === _.questionId)
-      .joinLeft(answers).on { case ((q, o), a) => o.id === a.optionId }
-  } yield (q, o, a)
-
-  // 2️⃣ Počet unikátních hlasování podle submissionId
-  val submissionCountQuery =
-    answers
+    val submissionCountQuery = answers
       .filter(_.pollId === pollId)
       .map(_.submissionId)
       .distinct
       .length
       .result
 
-  for {
-    rows <- db.run(query.result)
-    totalSubmissions <- db.run(submissionCountQuery)
-    pollRow <- db.run(polls.filter(_.id === pollId).result.headOption)
-  } yield {
+    for {
+      rows <- db.run(query.result)
+      totalSubmissions <- db.run(submissionCountQuery)
+      pollRowOpt <- db.run(polls.filter(_.id === pollId).result.headOption)
+    } yield {
+      pollRowOpt.map { p =>
+        val questionsMap = rows.groupBy { case (q, _, _) => q.id }
 
-    if (rows.isEmpty || pollRow.isEmpty) {
-      None
-    } else {
-      val questionsMap = rows.groupBy { case (q, _, _) => q.id }
+        val questionsJson = questionsMap.map { case (_, qRows) =>
+          val q = qRows.head._1
 
-      val questionsJson = questionsMap.map { case (_, qRows) =>
-        val q = qRows.head._1
+          val optionsMap = qRows.groupBy(_._2.id).map { case (optId, rs) =>
+            optId -> rs.map(_._3)
+          }
 
-        // seskupení možností podle optionId
-        val optionsMap = qRows.groupBy(_._2.id).map { case (optId, rs) =>
-          optId -> rs.map(_._3)
-        }
+          val optionJsons = optionsMap.map { case (optId, answersOpt) =>
+            val optionRow = qRows.find { case (_, opt, _) => opt.id == optId }.get._2
+            OptionJson(
+              id = optionRow.id,
+              text = optionRow.text,
+              votes = answersOpt.flatten.size
+            )
+          }.toSeq
 
-        val optionJsons = optionsMap.map { case (optId, answersOpt) =>
-          val optionRow = qRows.find { case (_, opt, _) => opt.id == optId }.get._2
-          OptionJson(
-            id = optionRow.id,
-            text = optionRow.text,
-            votes = answersOpt.flatten.size // počet hlasů pro tuto možnost
+          QuestionJson(
+            id = q.id,
+            text = q.text,
+            allowMultiple = q.allowMultiple,
+            options = optionJsons,
+            totalVotes = optionJsons.map(_.votes).sum
           )
         }.toSeq
 
-        QuestionJson(
-          id = q.id,
-          text = q.text,
-          allowMultiple = q.allowMultiple,
-          options = optionJsons,
-          totalVotes = optionJsons.map(_.votes).sum
-        )
-      }.toSeq
-
-      Some(
         PollJson(
-          id = pollRow.get.id,
-          createdAt = pollRow.get.createdAt,
+          id = p.id,
+          createdAt = p.createdAt.format(dateFormatter),
           questions = questionsJson,
-          totalVotes = totalSubmissions // počet unikátních hlasování
+          totalVotes = totalSubmissions
         )
-      )
+      }
     }
   }
-}
-
-
-
-
-
-
 }
