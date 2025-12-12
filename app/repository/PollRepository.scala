@@ -21,9 +21,28 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
 
   /** Vložení nového pollu s otázkami a možnostmi */
   def insertPoll(poll: Poll): Future[Long] = {
-    val action = for {
-      pollId <- (polls returning polls.map(_.id)) += PollRow(createdAt = poll.createdAt)
 
+    val status: String = poll.status match {
+      case Some(s) if s.trim.nonEmpty => s
+      case _ => "active"
+    }
+
+    val slug: String = poll.slug match {
+      case Some(s) if s.trim.nonEmpty => s
+      case _ => generateSlug(poll.title, System.currentTimeMillis())
+    }
+
+    val pollRow = PollRow(
+      id = 0,
+      createdAt = poll.createdAt,
+      title = poll.title,
+      showResults = poll.showResults,
+      status = status,
+      slug = slug
+    )
+
+    val action = for {
+      pollId <- (polls returning polls.map(_.id)) += pollRow
       _ <- DBIO.sequence(
         poll.questions.map { q =>
           for {
@@ -33,12 +52,7 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
               allowMultiple = q.allowMultiple
             )
             _ <- DBIO.sequence(
-              q.options.map { opt =>
-                options += OptionRow(
-                  questionId = qId,
-                  text = opt
-                )
-              }
+              q.options.map(opt => options += OptionRow(questionId = qId, text = opt))
             )
           } yield ()
         }
@@ -100,10 +114,38 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
         PollJson(
           id = p.id,
           createdAt = p.createdAt.format(dateFormatter),
+          title = p.title,
+          showResults = p.showResults,
           questions = questionsJson,
-          totalVotes = totalSubmissions
+          totalVotes = totalSubmissions,
+          status = p.status,
+          slug = p.slug  // správně
         )
       }
     }
   }
-}
+
+  /** Smazání pollu */
+  def deletePoll(id: Long): Future[Boolean] = {
+    val action = for {
+      _ <- answers.filter(_.pollId === id).delete
+      _ <- options.filter(_.questionId in questions.filter(_.pollId === id).map(_.id)).delete
+      _ <- questions.filter(_.pollId === id).delete
+      deletedRows <- polls.filter(_.id === id).delete
+    } yield deletedRows > 0
+
+    db.run(action.transactionally)
+  }
+
+  /** Pomocná funkce pro generování unikátního slug */
+  private def generateSlug(title: Option[String], uniqueId: Long): String = {
+    val base = title.getOrElse("anketa")
+      .toLowerCase
+      .replaceAll("[^a-z0-9]+", "-")
+      .stripPrefix("-")
+      .stripSuffix("-")
+      .take(50)
+    s"$base-$uniqueId"
+  }
+
+} // konec třídy

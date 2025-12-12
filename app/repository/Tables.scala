@@ -10,9 +10,13 @@ import repository.Mappings.localDateTimeColumnType  // import implicitního mapo
 // ============================
 class PollsTable(tag: Tag) extends Table[PollRow](tag, "polls") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+  def title = column[Option[String]]("title")        // nové pole, nullable
+  def showResults = column[Boolean]("show_results", O.Default(false)) // nové pole s defaultem
   def createdAt = column[LocalDateTime]("created_at")
+  def status = column[String]("status", O.Default("active"))     // povinný s defaultem
+  def slug = column[String]("slug", O.Default("temp"))  
 
-  def * = (id, createdAt) <> (PollRow.tupled, PollRow.unapply)
+  def * = (id, createdAt, title, showResults, status, slug) <> (PollRow.tupled, PollRow.unapply)
 }
 
 // ============================
