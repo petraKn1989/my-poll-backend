@@ -1,29 +1,28 @@
 # --- BUILD STAGE --------------------------------------------------------
 FROM eclipse-temurin:11-jdk AS builder
 
-# force rebuild
-
 WORKDIR /app
 
-# Install curl + unzip
-RUN apt-get update && apt-get install -y curl unzip
+# Nainstalujeme curl + unzip
+RUN apt-get update && apt-get install -y curl unzip gnupg
 
-# Install SBT
+# Stáhneme a nainstalujeme SBT
 RUN curl -L -o sbt.deb https://repo.scala-sbt.org/scalasbt/debian/sbt-1.10.0.deb \
     && apt-get update \
-    && apt-get install -y ./sbt.deb
+    && apt-get install -y ./sbt.deb \
+    && rm sbt.deb
 
-# Copy project files
-COPY build.sbt .
+# Zkopírujeme projektové soubory
+COPY build.sbt . 
 COPY project ./project
 
-# Pre-fetch dependencies
+# Pre-fetch dependencies (rychlejší build)
 RUN sbt update
 
-# Copy the rest of project
+# Zkopírujeme zbytek projektu
 COPY . .
 
-# Build Play app
+# Build aplikace (Play Framework)
 RUN sbt stage
 
 # --- RUNTIME STAGE ------------------------------------------------------
@@ -31,13 +30,11 @@ FROM eclipse-temurin:11-jre
 
 WORKDIR /app
 
-# Copy hotový stage (binárky + conf)
+# Zkopírujeme připravenou aplikaci ze stage build
 COPY --from=builder /app/target/universal/stage ./stage
 
-# Expose port pro Render
+# Expose port (Railway/localhost)
 EXPOSE 9000
 
-# CMD spustí aplikaci s Play secret a configem
-CMD ["sh", "-c", "./stage/bin/poll-backend -Dhttp.port=${PORT} -Dplay.http.secret.key=$PLAY_SECRET"]
-
-
+# CMD spustí aplikaci s Play secret a portem
+CMD ["sh", "-c", "./stage/bin/poll-backend -Dhttp.port=${PORT:-9000} -Dplay.http.secret.key=${PLAY_SECRET}"]
