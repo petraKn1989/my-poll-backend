@@ -25,6 +25,10 @@ object JsonFormats {
   implicit val questionFormat: OFormat[Question] = Json.format[Question]
   implicit val pollFormat: OFormat[Poll] = Json.format[Poll]
 
+  // ==================== PATCH ====================
+implicit val pollStatusPatchFormat: OFormat[PollStatusPatch] =
+  Json.format[PollStatusPatch]
+
   // ==================== DTO ====================
   implicit val answerDtoFormat: OFormat[AnswerDto] = Json.format[AnswerDto]
   implicit val submitAnswersFormat: OFormat[SubmitAnswers] = Json.format[SubmitAnswers]

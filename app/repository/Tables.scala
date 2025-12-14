@@ -14,7 +14,7 @@ class PollsTable(tag: Tag) extends Table[PollRow](tag, "polls") {
   def showResults = column[Boolean]("show_results", O.Default(false)) // nové pole s defaultem
   def createdAt = column[LocalDateTime]("created_at")
   def status = column[String]("status", O.Default("active"))     // povinný s defaultem
-  def slug = column[String]("slug", O.Default("temp"))  
+  def slug = column[String]("slug") // bez Default
 
   def * = (id, createdAt, title, showResults, status, slug) <> (PollRow.tupled, PollRow.unapply)
 }

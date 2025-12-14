@@ -148,4 +148,27 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
     s"$base-$uniqueId"
   }
 
+  def getPollWithQuestionsAndOptionsBySlug(slug: String): Future[Option[PollJson]] = {
+  db.run(polls.filter(_.slug === slug).result.headOption).flatMap {
+    case Some(poll) =>
+      getPollWithQuestionsAndOptions(poll.id) // využijeme existující metodu podle ID
+    case None =>
+      Future.successful(None)
+  }
+}
+
+
+
+  /** Změna statusu pollu */
+def updateStatus(pollId: Long, newStatus: String): Future[Int] = {
+  db.run(
+    polls
+      .filter(_.id === pollId)
+      .map(_.status)
+      .update(newStatus)
+  )
+}
+
+
+
 } // konec třídy

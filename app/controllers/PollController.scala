@@ -27,15 +27,20 @@ def createPoll = Action(parse.json).async { request =>
       val pollWithCreatedAt = poll.copy(createdAt = now)
 
       // Zavolání repository – necháme ji doplnit slug a status
-      pollRepo.insertPoll(pollWithCreatedAt).map { id =>
-        Created(Json.obj(
-          "status" -> "ok",
-          "id" -> id,
-          "title" -> poll.title,
-          "showResults" -> poll.showResults,
-          "slug" -> pollWithCreatedAt.slug  // už jen samotný String
-        ))
-      }
+     pollRepo.insertPoll(pollWithCreatedAt).flatMap { id =>
+  pollRepo.getPollWithQuestionsAndOptions(id).map {
+    case Some(pollFromDb) =>
+      Created(Json.obj(
+        "status" -> "ok",
+        "id" -> id,
+        "title" -> poll.title,
+        "showResults" -> poll.showResults,
+        "slug" -> pollFromDb.slug
+      ))
+    case None =>
+      InternalServerError("Poll was not found after insert")
+  }
+}
     }
   )
 }
@@ -52,6 +57,18 @@ def createPoll = Action(parse.json).async { request =>
     }
   }
 
+  def getPollBySlug(slug: String) = Action.async {
+  pollRepo.getPollWithQuestionsAndOptionsBySlug(slug).map {
+    case Some(poll) =>
+      // Formátování createdAt zůstává stejné
+      val formattedPoll = poll.copy(createdAt = poll.createdAt)
+      Ok(Json.toJson(formattedPoll))
+    case None =>
+      NotFound(Json.obj("error" -> s"Poll with slug $slug not found"))
+  }
+}
+
+
   def deletePoll(id: Long) = Action.async {
   pollRepo.deletePoll(id).map {
     case true  => Ok(Json.obj("status" -> "ok", "message" -> s"Poll $id deleted successfully"))
@@ -66,6 +83,64 @@ private def generateSlug(title: Option[String], uniqueId: Long): String = {
     .take(50) // max délka slug
   s"$base-$uniqueId"
 }
+
+
+def patchStatus(id: Long) = Action(parse.json).async { request =>
+  request.body.validate[PollStatusPatch] match {
+
+    case JsSuccess(patch, _) =>
+      val allowedStatuses = Set(
+        "active",
+        "paused",
+        "deleted",
+        "finished_hidden",
+        "finished_published"
+      )
+
+      if (!allowedStatuses.contains(patch.status))
+        Future.successful(BadRequest("Unknown status"))
+      else
+        pollRepo.updateStatus(id, patch.status).map {
+          case 0 => NotFound("Poll not found")
+          case _ => Ok(Json.obj("status" -> patch.status))
+        }
+
+    case JsError(_) =>
+      Future.successful(BadRequest("Invalid status JSON"))
+  }
+}
+
+def patchStatusBySlug(slug: String) = Action.async(parse.json) { request =>
+  request.body.validate[PollStatusPatch] match {
+
+    case JsSuccess(patch, _) =>
+      val allowedStatuses = Set(
+        "active",
+        "paused",
+        "deleted",
+        "finished_hidden",
+        "finished_published"
+      )
+
+      if (!allowedStatuses.contains(patch.status))
+        Future.successful(BadRequest("Unknown status"))
+      else
+        pollRepo.getPollWithQuestionsAndOptionsBySlug(slug).flatMap {
+          case Some(poll) =>
+            pollRepo.updateStatus(poll.id, patch.status).map { _ =>
+              Ok(Json.obj("status" -> patch.status))
+            }
+          case None =>
+            Future.successful(NotFound(Json.obj("error" -> s"Poll with slug $slug not found")))
+        }
+
+    case JsError(_) =>
+      Future.successful(BadRequest("Invalid status JSON"))
+  }
+}
+
+
+
 
 
 }

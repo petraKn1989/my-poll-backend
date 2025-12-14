@@ -23,4 +23,5 @@ case class Poll(
   status: Option[String],   // teď optional
   slug: Option[String]      // teď optional
 )
+case class PollStatusPatch(status: String)
 

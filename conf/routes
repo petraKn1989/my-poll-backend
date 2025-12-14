@@ -8,5 +8,10 @@ GET     /assets/*file               controllers.Assets.versioned(path="/public",
 GET    /polls/:id       controllers.PollController.getPoll(id: Long)
 POST    /api/answers            controllers.AnswerController.submitAnswers()
 DELETE  /poll/:id      controllers.PollController.deletePoll(id: Long)
+PATCH   /poll/:id/status   controllers.PollController.patchStatus(id: Long)
+GET     /api/polls/:slug  controllers.PollController.getPollBySlug(slug: String)
+PATCH   /api/poll/:slug     controllers.PollController.patchStatusBySlug(slug: String)
+
+
 
 
