@@ -29,6 +29,25 @@ class PollsTable(tag: Tag) extends Table[PollRow](tag, "polls") {
   def * = (id, createdAt, title, showResults, status, slug) <> (PollRow.tupled, PollRow.unapply)
 }
 
+case class VoteRow(
+  id: Long = 0,
+  pollId: Long,
+  ipAddress: String,
+  createdAt: LocalDateTime = LocalDateTime.now()
+)
+
+class VotesTable(tag: Tag) extends Table[VoteRow](tag, "votes") {
+  def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+  def pollId = column[Long]("poll_id")
+  def ipAddress = column[String]("ip_address")
+  def createdAt = column[LocalDateTime]("created_at")
+
+  // Cizí klíč na poll
+  def pollFk = foreignKey("poll_fk", pollId, TableQuery[PollsTable])(_.id, onDelete = ForeignKeyAction.Cascade)
+
+  def * = (id, pollId, ipAddress, createdAt) <> (VoteRow.tupled, VoteRow.unapply)
+}
+
 
 
 case class QuestionRow(id: Long = 0, pollId: Long, text: String, allowMultiple: Boolean)

@@ -12,7 +12,7 @@ case class OptionJson(id: Long, text: String, votes: Int)
 case class QuestionJson(id: Long, text: String, allowMultiple: Boolean, options: Seq[OptionJson], totalVotes: Int)
 
 case class PollJson(id: Long, title: Option[String], showResults: Boolean, createdAt: String, questions: Seq[QuestionJson], totalVotes: Int,
-status: String, slug: String)
+status: String, slug: String, allowVote: Option[Boolean] = Some(false))
 
 case class Question(text: String, allowMultiple: Boolean, options: List[String])
 case class Poll(
