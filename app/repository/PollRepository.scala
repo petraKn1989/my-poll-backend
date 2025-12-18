@@ -72,25 +72,35 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
       pollRowOpt <- db.run(pollRowQuery)
     } yield pollRowOpt.map { p =>
       val questionsMap = rows.groupBy { case (q, _, _) => q.id }
-      val questionsJson = questionsMap.map { case (_, qRows) =>
-        val q = qRows.head._1
-        val optionsMap = qRows.groupBy(_._2.id).map { case (optId, rs) => optId -> rs.map(_._3) }
-        val optionJsons = optionsMap.map { case (optId, answersOpt) =>
-          val optionRow = qRows.find { case (_, opt, _) => opt.id == optId }.get._2
-          OptionJson(
-            id = optionRow.id,
-            text = optionRow.text,
-            votes = answersOpt.flatten.size
-          )
-        }.toSeq
-        QuestionJson(
-          id = q.id,
-          text = q.text,
-          allowMultiple = q.allowMultiple,
-          options = optionJsons,
-          totalVotes = optionJsons.map(_.votes).sum
+      val questionsJson = questionsMap.toSeq
+  // 1️⃣ seřadíme otázky podle ID, aby bylo pořadí stejné
+  .sortBy { case (_, qRows) => qRows.head._1.id }
+  .map { case (_, qRows) =>
+    val q = qRows.head._1
+
+    // 2️⃣ seskupíme možnosti podle id a seřadíme je
+    val optionsMap = qRows.groupBy(_._2.id)
+    val optionJsons = optionsMap.toSeq
+      .sortBy(_._1) // řadíme podle option.id
+      .map { case (optId, rs) =>
+        val optionRow = qRows.find { case (_, opt, _) => opt.id == optId }.get._2
+        OptionJson(
+          id = optionRow.id,
+          text = optionRow.text,
+          votes = rs.map(_._3).flatten.size
         )
-      }.toSeq
+      }
+
+    // 3️⃣ složíme JSON otázky
+    QuestionJson(
+      id = q.id,
+      text = q.text,
+      allowMultiple = q.allowMultiple,
+      options = optionJsons,
+      totalVotes = optionJsons.map(_.votes).sum
+    )
+  }
+
 
       PollJson(
         id = p.id,
