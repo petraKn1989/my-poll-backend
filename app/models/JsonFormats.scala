@@ -32,4 +32,7 @@ implicit val pollStatusPatchFormat: OFormat[PollStatusPatch] =
   // ==================== DTO ====================
   implicit val answerDtoFormat: OFormat[AnswerDto] = Json.format[AnswerDto]
   implicit val submitAnswersFormat: OFormat[SubmitAnswers] = Json.format[SubmitAnswers]
+
+  implicit val answerDetailFormat: OFormat[AnswerDetail] = Json.format[AnswerDetail]
+  implicit val submissionSummaryFormat: OFormat[SubmissionSummary] = Json.format[SubmissionSummary]
 }

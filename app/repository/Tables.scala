@@ -64,6 +64,7 @@ class AnswersTable(tag: Tag) extends Table[AnswerRow](tag, "answers") {
   def userId = column[Option[Long]]("user_id")
   def createdAt = column[LocalDateTime]("created_at")  // LocalDateTime díky mappingu
   def submissionId = column[String]("submission_id")
+  def submissionNote = column[Option[String]]("note")
 
-  def * = (id, pollId, questionId, optionId, userId, createdAt, submissionId) <> (AnswerRow.tupled, AnswerRow.unapply)
+  def * = (id, pollId, questionId, optionId, userId, createdAt, submissionId, submissionNote) <> (AnswerRow.tupled, AnswerRow.unapply)
 }

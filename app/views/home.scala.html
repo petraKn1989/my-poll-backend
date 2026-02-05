@@ -1,0 +1,36 @@
+@(title: String = "Anketa zdarma – rychlý online dotazník bez registrace a bez emailu")
+
+@main(title) {
+  
+  <!-- SEO meta přímo v head hlavního layoutu nebo zde přes další Twirl -->
+  <meta name="description" content="Vytvořte si rychle online anketu nebo dotazník zdarma bez registrace a bez emailu. Rychlé hlasování online pro všechny.">
+  <meta name="keywords" content="anketa zdarma, dotazník zdarma, hlasování online, rychlá anketa, online dotazník, rychle, bez registrace, bez emailu, hlasování zdarma, online anketa zdarma">
+  <meta name="robots" content="index, follow">
+
+  <!-- JSON-LD pro vyhledávače -->
+@Html("""
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Anketa zdarma",
+  "url": "https://www.anketa-zdarma.cz/",
+  "description": "Vytvořte si rychle online anketu nebo dotazník zdarma bez registrace a bez emailu. Rychlé hlasování online pro všechny.",
+  "keywords": ["anketa zdarma","dotazník zdarma","hlasování online","rychlá anketa","online dotazník","rychle","bez registrace","bez emailu","hlasování zdarma","online anketa zdarma"],
+  "potentialAction": {
+    "@type": "CreateAction",
+    "target": "https://www.anketa-zdarma.cz/"
+  }
+}
+</script>
+""")
+
+
+  <!-- Hlavní SEO text -->
+  <h1>Anketa zdarma – rychlý online dotazník bez registrace</h1>
+  <h2>Vytvořte si vlastní online anketu nebo dotazník zdarma bez emailu</h2>
+  <p>Rychlé hlasování online bez registrace a bez nutnosti zadat email. Sdílejte s přáteli, kolegy či studenty a sledujte výsledky okamžitě.</p>
+
+  <!-- Angular mount point -->
+  <app-root></app-root>
+}

@@ -11,6 +11,7 @@ DELETE  /poll/:id      controllers.PollController.deletePoll(id: Long)
 PATCH   /poll/:id/status   controllers.PollController.patchStatus(id: Long)
 GET     /api/polls/:slug  controllers.PollController.getPollBySlug(slug: String)
 PATCH   /api/poll/:slug     controllers.PollController.patchStatusBySlug(slug: String)
+GET     /api/submissions/:pollId      controllers.AnswerController.getSubmissions(pollId: Long)
 
 
 

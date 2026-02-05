@@ -18,7 +18,7 @@ class AnswerController @Inject()(
     pollRepo: PollRepository
 )(implicit ec: ExecutionContext) extends AbstractController(cc) {
 
-  def submitAnswers = Action(parse.json).async { request =>
+ def submitAnswers = Action(parse.json).async { request =>
   request.body.validate[SubmitAnswers].fold(
     errors => Future.successful(BadRequest(JsError.toJson(errors))),
     data => {
@@ -33,22 +33,23 @@ class AnswerController @Inject()(
 
           val submissionId = java.util.UUID.randomUUID().toString
 
-          val actions =
-            data.answers.flatMap { a =>
-              a.selectedOptionIds.map { optionId =>
-                answerRepo.insertAnswer(
-                  AnswerRow(
-                    id = 0L,
-                    pollId = data.pollId,
-                    questionId = a.questionId,
-                    optionId = optionId,
-                    userId = data.userId,
-                    createdAt = LocalDateTime.now(),
-                    submissionId = submissionId
-                  )
+          // vložení odpovědí + submissionNote jen u první odpovědi
+          val actions = data.answers.flatMap { a =>
+            a.selectedOptionIds.zipWithIndex.map { case (optionId, idx) =>
+              answerRepo.insertAnswer(
+                AnswerRow(
+                  id = 0L,
+                  pollId = data.pollId,
+                  questionId = a.questionId,
+                  optionId = optionId,
+                  userId = data.userId,
+                  createdAt = LocalDateTime.now(),
+                  submissionId = submissionId,
+                  submissionNote = if(idx == 0) data.note else None  // poznámka jen u první odpovědi
                 )
-              }
+              )
             }
+          }
 
           for {
             _ <- Future.sequence(actions)
@@ -58,6 +59,12 @@ class AnswerController @Inject()(
       }
     }
   )
+}
+
+def getSubmissions(pollId: Long) = Action.async {
+  answerRepo.getSubmissionsForPoll(pollId).map { submissions =>
+    Ok(Json.toJson(submissions))
+  }
 }
 
 }
