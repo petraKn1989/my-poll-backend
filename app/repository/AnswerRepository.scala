@@ -36,7 +36,9 @@ class AnswerRepository @Inject()(implicit ec: ExecutionContext) {
 
   db.run(query.result).map { rows =>
     rows.groupBy(_._1).map { case (submissionId, rowsForSubmission) =>
-      val note = rowsForSubmission.headOption.flatMap(_._2) // poznámka jen jednou
+   
+      val note = rowsForSubmission.flatMap(_._2).headOption
+
       val details = rowsForSubmission.map { case (_, _, qText, oText) =>
         AnswerDetail(qText, oText)
       }
