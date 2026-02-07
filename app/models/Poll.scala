@@ -34,6 +34,8 @@ case class AnswerDetail(
 case class SubmissionSummary(
   submissionId: String,
   note: Option[String],
-  answers: Seq[AnswerDetail]
+  answers: Seq[AnswerDetail],
+  createdAt: LocalDateTime
+
 )
 

@@ -27,23 +27,38 @@ class AnswerRepository @Inject()(implicit ec: ExecutionContext) {
   def insertUser(user: UserRow): Future[Long] =
     db.run((users returning users.map(_.id)) += user)
 
-    def getSubmissionsForPoll(pollId: Long): Future[Seq[SubmissionSummary]] = {
-  val query = for {
-    a <- answers if a.pollId === pollId
-    q <- questions if q.id === a.questionId
-    o <- options if o.id === a.optionId
-  } yield (a.submissionId, a.submissionNote, q.text, o.text)
+def getSubmissionsForPoll(pollId: Long): Future[Seq[SubmissionSummary]] = {
+  val answersQuery = answers.filter(_.pollId === pollId).result
+  val questionsQuery = questions.result
+  val optionsQuery = options.result
 
-  db.run(query.result).map { rows =>
-    rows.groupBy(_._1).map { case (submissionId, rowsForSubmission) =>
-   
-      val note = rowsForSubmission.flatMap(_._2).headOption
+  for {
+    answerRows <- db.run(answersQuery)
+    questionRows <- db.run(questionsQuery)
+    optionRows <- db.run(optionsQuery)
+  } yield {
+    // Map questionId -> Question
+    val questionsMap = questionRows.map(q => q.id -> q).toMap
+    // Map optionId -> Option
+    val optionsMap = optionRows.map(o => o.id -> o).toMap
 
-      val details = rowsForSubmission.map { case (_, _, qText, oText) =>
-        AnswerDetail(qText, oText)
+    answerRows
+      .groupBy(_.submissionId)
+      .map { case (submissionId, rowsForSubmission) =>
+        val note = rowsForSubmission.flatMap(_.submissionNote).headOption
+
+        val details = rowsForSubmission.sortBy(_.createdAt).map { a =>
+          val qText = questionsMap(a.questionId).text
+          val oText = optionsMap(a.optionId).text
+          AnswerDetail(qText, oText)
+        }
+
+        val submissionCreatedAt = rowsForSubmission.map(_.createdAt).min
+
+        SubmissionSummary(submissionId, note, details, submissionCreatedAt)
       }
-      SubmissionSummary(submissionId, note, details)
-    }.toSeq.sortBy(_.submissionId)
+      .toSeq
+      .sortBy(_.createdAt)
   }
 }
 
