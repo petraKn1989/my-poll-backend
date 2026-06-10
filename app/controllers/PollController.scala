@@ -23,7 +23,8 @@ class PollController @Inject()(
       val pollWithCreatedAt = poll.copy(createdAt = LocalDateTime.now())
       for {
         id <- pollRepo.insertPoll(pollWithCreatedAt)
-        pollFromDb <- pollRepo.getPollWithQuestionsAndOptions(id, clientIp)
+    
+        pollFromDb <- pollRepo.getPollWithQuestionsAndOptions(id, "")
       } yield pollFromDb match {
         case Some(p) => Created(Json.toJson(p))
         case None => InternalServerError("Poll was not found after insert")
@@ -34,33 +35,37 @@ class PollController @Inject()(
 
 
   def getPoll(id: Long) = Action.async { request =>
-    val clientIp = request.remoteAddress
-    pollRepo.getPollWithQuestionsAndOptions(id, clientIp).map {
-      case Some(p) => Ok(Json.toJson(p))
-      case None => NotFound(Json.obj("error" -> s"Poll with id $id not found"))
-    }
+    pollRepo.getPollWithQuestionsAndOptions(id, "").map {
+    case Some(p) => Ok(Json.toJson(p))
+    case None    => NotFound(Json.obj("error" -> s"Poll with id $id not found"))
+  }
   }
 
   def getPollBySlug(slug: String) = Action.async { request =>
-    val clientIp = request.remoteAddress
-    pollRepo.getPollWithQuestionsAndOptionsBySlug(slug, clientIp).map {
-      case Some(p) => Ok(Json.toJson(p))
-      case None => NotFound(Json.obj("error" -> s"Poll with slug $slug not found"))
-    }
+  // Vytáhneme deviceUuid přímo z URL dotazu (?deviceUuid=...)
+  // Play framework nám vrátí Option[String] automaticky
+  val deviceUuidFromUrl = request.getQueryString("deviceUuid")
+
+  // Vyčistíme případný textový "null" z Angularu
+  val cleanUuid = deviceUuidFromUrl.filter(id => id.nonEmpty && id != "null").getOrElse("")
+
+  // Posíláme do repozitáře
+  pollRepo.getPollWithQuestionsAndOptionsBySlug(slug, cleanUuid).map {
+    case Some(pollJson) => Ok(Json.toJson(pollJson))
+    case None           => NotFound(Json.obj("error" -> "Anketa nenalezena"))
+  }
   }
 
- def submitVote(pollId: Long) = Action(parse.json).async { request =>
+def submitVote(pollId: Long) = Action(parse.json).async { request =>
   val clientIp = request.remoteAddress
   request.body.validate[SubmitAnswers].fold(
     errors => Future.successful(BadRequest(JsError.toJson(errors))),
     submitAnswers => {
-      pollRepo.hasVoted(pollId, clientIp).flatMap { voted =>
-        if (voted) Future.successful(Ok(Json.obj("allowVote" -> false)))
-        else for {
-          _ <- pollRepo.insertVote(pollId, clientIp)
-          _ <- pollRepo.insertAnswers(pollId, submitAnswers.answers)
-        } yield Ok(Json.obj("allowVote" -> true))
-      }
+      for {
+     
+        _ <- pollRepo.insertVote(pollId, clientIp, submitAnswers.deviceUuid)
+        _ <- pollRepo.insertAnswers(pollId, submitAnswers.answers)
+      } yield Ok(Json.obj("allowVote" -> true))
     }
   )
 }

@@ -19,6 +19,10 @@ class AnswerController @Inject()(
 )(implicit ec: ExecutionContext) extends AbstractController(cc) {
 
  def submitAnswers = Action(parse.json).async { request =>
+ val deviceUuidOpt = (request.body \ "deviceUuid").asOpt[String]
+    .orElse(request.getQueryString("deviceUuid"))
+  val cleanUuid = deviceUuidOpt.filter(id => id.nonEmpty && id != "null").getOrElse("")
+
   request.body.validate[SubmitAnswers].fold(
     errors => Future.successful(BadRequest(JsError.toJson(errors))),
     data => {
@@ -26,14 +30,14 @@ class AnswerController @Inject()(
         .get("X-Forwarded-For")
         .getOrElse(request.remoteAddress)
 
-      pollRepo.hasVoted(data.pollId, clientIp).flatMap { voted =>
+      // 2. OPRAVENO: Posíláme cleanUuid, aby repozitář ověřil duplicitu podle UUID!
+      pollRepo.hasVoted(data.pollId, cleanUuid).flatMap { voted =>
         if (voted) {
           Future.successful(Ok(Json.obj("status" -> "ok", "allowVote" -> false)))
         } else {
 
           val submissionId = java.util.UUID.randomUUID().toString
 
-          // vložení odpovědí + submissionNote jen u první odpovědi
           val actions = data.answers.flatMap { a =>
             a.selectedOptionIds.zipWithIndex.map { case (optionId, idx) =>
               answerRepo.insertAnswer(
@@ -45,7 +49,7 @@ class AnswerController @Inject()(
                   userId = data.userId,
                   createdAt = LocalDateTime.now(),
                   submissionId = submissionId,
-                  submissionNote = if(idx == 0) data.note else None  // poznámka jen u první odpovědi
+                  submissionNote = if(idx == 0) data.note else None
                 )
               )
             }
@@ -53,18 +57,18 @@ class AnswerController @Inject()(
 
           for {
             _ <- Future.sequence(actions)
-            _ <- pollRepo.insertVote(data.pollId, clientIp)
+            // Tady ukládáme obojí (IP i UUID)
+            _ <- pollRepo.insertVote(data.pollId, clientIp, cleanUuid)
           } yield Ok(Json.obj("status" -> "ok", "allowVote" -> true))
         }
       }
     }
   )
-}
-
-def getSubmissions(pollId: Long) = Action.async {
-  answerRepo.getSubmissionsForPoll(pollId).map { submissions =>
-    Ok(Json.toJson(submissions))
   }
-}
 
+  def getSubmissions(pollId: Long) = Action.async {
+    answerRepo.getSubmissionsForPoll(pollId).map { submissions =>
+      Ok(Json.toJson(submissions))
+    }
+  }
 }

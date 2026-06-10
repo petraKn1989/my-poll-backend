@@ -54,7 +54,7 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
   }
 
   /** Vrátí poll s otázkami, možnostmi a allowVote podle IP adresy */
-  def getPollWithQuestionsAndOptions(pollId: Long, ipAddress: String): Future[Option[PollJson]] = {
+  def getPollWithQuestionsAndOptions(pollId: Long, deviceUuid: String): Future[Option[PollJson]] = {
     val query = for {
       ((q, o), a) <- questions.filter(_.pollId === pollId)
         .join(options).on(_.id === _.questionId)
@@ -62,7 +62,7 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
     } yield (q, o, a)
 
     val submissionCountQuery = answers.filter(_.pollId === pollId).map(_.submissionId).distinct.length.result
-    val votedQuery = votes.filter(v => v.pollId === pollId && v.ipAddress === ipAddress).exists.result
+    val votedQuery = votes.filter(v => v.pollId === pollId && v.deviceUuid === deviceUuid).exists.result
     val pollRowQuery = polls.filter(_.id === pollId).result.headOption
 
     for {
@@ -117,25 +117,29 @@ class PollRepository @Inject()(implicit ec: ExecutionContext) {
   }
 
   /** Stejné jako getPoll podle slug */
-  def getPollWithQuestionsAndOptionsBySlug(slug: String, clientIp: String): Future[Option[PollJson]] = {
+  def getPollWithQuestionsAndOptionsBySlug(slug: String, deviceUuid: String): Future[Option[PollJson]] = {
   db.run(polls.filter(_.slug === slug).result.headOption).flatMap {
-    case Some(poll) =>
-      getPollWithQuestionsAndOptions(poll.id, clientIp)
-    case None =>
-      Future.successful(None)
+    case Some(poll) => getPollWithQuestionsAndOptions(poll.id, deviceUuid)
+    case None => Future.successful(None)
   }
 }
 
 
   /** Vloží hlas */
-  def insertVote(pollId: Long, ipAddress: String): Future[Long] = {
-    val vote = VoteRow(pollId = pollId, ipAddress = ipAddress)
-    db.run((votes returning votes.map(_.id)) += vote)
-  }
+ def insertVote(pollId: Long, ipAddress: String, deviceUuid: String): Future[Long] = {
+  val vote = VoteRow(
+    id = 0L,                               // Generuje DB automaticky
+    pollId = pollId, 
+    ipAddress = ipAddress,                 // Tady se správně uloží reálná IP z controlleru
+    createdAt = LocalDateTime.now(),       // Aktuální čas zápisu
+    deviceUuid = deviceUuid                // UUID z Angularu (pozor na rovnítko "=" místo ":")
+  )
+  db.run((votes returning votes.map(_.id)) += vote)
+}
 
   /** Kontrola, zda IP už hlasovala */
-  def hasVoted(pollId: Long, ipAddress: String): Future[Boolean] = {
-    db.run(votes.filter(v => v.pollId === pollId && v.ipAddress === ipAddress).exists.result)
+  def hasVoted(pollId: Long, deviceUuid: String): Future[Boolean] = {
+    db.run(votes.filter(v => v.pollId === pollId && v.deviceUuid === deviceUuid).exists.result)
   }
 
   /** Smazání pollu */

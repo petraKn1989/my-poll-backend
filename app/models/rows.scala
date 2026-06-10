@@ -33,7 +33,8 @@ case class VoteRow(
   id: Long = 0,
   pollId: Long,
   ipAddress: String,
-  createdAt: LocalDateTime = LocalDateTime.now()
+  createdAt: LocalDateTime = LocalDateTime.now(),
+  deviceUuid: String
 )
 
 class VotesTable(tag: Tag) extends Table[VoteRow](tag, "votes") {
@@ -41,11 +42,12 @@ class VotesTable(tag: Tag) extends Table[VoteRow](tag, "votes") {
   def pollId = column[Long]("poll_id")
   def ipAddress = column[String]("ip_address")
   def createdAt = column[LocalDateTime]("created_at")
+  def deviceUuid = column[String]("device_uuid")
 
   // Cizí klíč na poll
   def pollFk = foreignKey("poll_fk", pollId, TableQuery[PollsTable])(_.id, onDelete = ForeignKeyAction.Cascade)
 
-  def * = (id, pollId, ipAddress, createdAt) <> (VoteRow.tupled, VoteRow.unapply)
+  def * = (id, pollId, ipAddress, createdAt, deviceUuid) <> (VoteRow.tupled, VoteRow.unapply)
 }
 
 
